@@ -1,0 +1,8 @@
+{
+  "name": "Orchestrator",
+  "description": "Orchestrator is a premium AI platform that transforms real-world observations, videos, and links into structured, actionable insights and AI-generated media.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
