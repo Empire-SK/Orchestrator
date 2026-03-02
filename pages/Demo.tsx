@@ -4,33 +4,15 @@ import { analyzeObservation, generateVisionVideo } from '../services/geminiServi
 import { AIResponse, NeedStatement } from '../types';
 import { ICONS } from '../constants';
 
-const TableRow: React.FC<{ data: NeedStatement }> = ({ data }) => (
+const TableRow: React.FC<{ data: NeedStatement, brainstorm?: string }> = ({ data, brainstorm }) => (
   <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-    <td className="p-4 text-sm font-medium text-slate-900 max-w-xs">{data.statement}</td>
-    <td className="p-4 text-xs text-slate-500 uppercase font-semibold">{data.category}</td>
-    <td className="p-4">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-1.5 w-12 bg-slate-100 rounded-full overflow-hidden">
-          <div 
-            className={`h-full rounded-full ${data.impactScore > 7 ? 'bg-red-500' : 'bg-blue-500'}`} 
-            style={{ width: `${data.impactScore * 10}%` }}
-          />
-        </div>
-        <span className="text-xs font-bold text-slate-700">{data.impactScore}</span>
-      </div>
-    </td>
-    <td className="p-4 text-xs text-slate-500">{data.marketPotential}</td>
-    <td className="p-4">
-      <span className={`px-2 py-1 rounded text-[10px] font-bold ${
-        data.riskLevel === 'Low' ? 'bg-green-50 text-green-700' : 
-        data.riskLevel === 'Medium' ? 'bg-amber-50 text-amber-700' : 
-        'bg-red-50 text-red-700'
-      }`}>
-        {data.riskLevel}
-      </span>
-    </td>
-    <td className="p-4 text-xs font-bold text-slate-700">{data.feasibility}/10</td>
-    <td className="p-4 text-xs italic text-slate-400">{data.timeToExecution}</td>
+    <td className="p-4 text-xs text-slate-600 border-r border-slate-50">{data.barrier}</td>
+    <td className="p-4 text-xs text-slate-600 border-r border-slate-50">{data.stakeholder}</td>
+    <td className="p-4 text-xs text-slate-600 border-r border-slate-50 italic">{data.pain}</td>
+    <td className="p-4 text-xs text-slate-600 border-r border-slate-50">{data.workaround}</td>
+    <td className="p-4 text-xs font-bold text-blue-700 border-r border-slate-50">{data.need}</td>
+    <td className="p-4 text-xs font-medium text-slate-900 border-r border-slate-50">{data.statement}</td>
+    <td className="p-4 text-[11px] text-slate-500">{brainstorm || '-'}</td>
   </tr>
 );
 
@@ -43,6 +25,11 @@ const Demo = () => {
   const [videoUrl, setVideoUrl] = useState('');
   const [error, setError] = useState('');
 
+  // New state for handling the actual video file to be analyzed
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [isVideoAnalyzing, setIsVideoAnalyzing] = useState(false);
+
   const loadingMessages = [
     "Analyzing clinical barriers...",
     "Ideating accessible solutions...",
@@ -50,10 +37,9 @@ const Demo = () => {
     "Generating high-fidelity visualization..."
   ];
 
-  // Logic to rotate loading messages for improved UX during long video generation tasks.
   useEffect(() => {
     let interval: number;
-    if (isVideoLoading) {
+    if (isVideoLoading || isVideoAnalyzing) {
       let i = 0;
       setVideoLoadingMessage(loadingMessages[0]);
       interval = window.setInterval(() => {
@@ -62,7 +48,7 @@ const Demo = () => {
       }, 5000);
     }
     return () => window.clearInterval(interval);
-  }, [isVideoLoading]);
+  }, [isVideoLoading, isVideoAnalyzing]);
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
@@ -78,133 +64,201 @@ const Demo = () => {
     }
   };
 
-  /**
-   * Handles high-quality video generation for the intervention visualization.
-   * Includes API key selection logic and recovery for specific error states as required by guidelines.
-   */
-  const handleVision = async () => {
-    // Check whether an API key has been selected before starting video generation.
-    if (!(await window.aistudio.hasSelectedApiKey())) {
-      await window.aistudio.openSelectKey();
-      // Proceed directly after opening dialog to avoid race conditions.
+  const handleAnalyzeVideo = async () => {
+    if (!selectedVideoFile) return;
+    setIsVideoAnalyzing(true);
+    setError('');
+    try {
+      // Assuming new function `analyzeVideoFile` in geminiService
+      const { analyzeVideoFile } = await import('../services/geminiService');
+      const data = await analyzeVideoFile(selectedVideoFile);
+      setResult(data);
+      // Optional: clear standard text input since we analyzed video
+      setInput('');
+    } catch (err: any) {
+      setError(err.message || 'Video Analysis failed. Please verify your API setup.');
+    } finally {
+      setIsVideoAnalyzing(false);
     }
-    
+  };
+
+  const handleVision = async () => {
+    // Note: AI Studio key selection is removed as we moved keys to the backend.
+    // However, vision generation is currently disabled due to enterprise constraints.
     setIsVideoLoading(true);
     setError('');
     try {
-      const url = await generateVisionVideo(`Assistive device concept based on: ${result?.insights.observation || input}`);
+      const { generateVisionVideo } = await import('../services/geminiService');
+      const url = await generateVisionVideo(`Assistive device concept based on: ${result?.insights.observationSummary || input}`);
       setVideoUrl(url);
     } catch (err: any) {
-      // If request fails with 404/Requested entity was not found, trigger re-selection of key.
-      if (err.message?.includes("Requested entity was not found.")) {
-        await window.aistudio.openSelectKey();
-        setError('Session expired. Please select a paid API key again to continue.');
-      } else {
-        setError('Visualization generation failed. Please ensure a paid API key is selected.');
-      }
+      setError(err.message || 'Visualization generation failed.');
     } finally {
       setIsVideoLoading(false);
     }
   };
 
+  const handleExportCSV = () => {
+    if (!result || !result.tableData) return;
+
+    const headers = [
+      "Barrier",
+      "Stakeholder",
+      "Pain",
+      "Workaround",
+      "Core Need",
+      "Need Statement",
+      "Problem Brainstorm",
+      "Questions"
+    ];
+
+    const maxRows = Math.max(
+      result.tableData.length,
+      result.insights.problemBrainstorm?.length || 0,
+      result.insights.questions?.length || 0
+    );
+
+    const rows = Array.from({ length: maxRows }).map((_, i) => {
+      const row = result.tableData[i] || { barrier: '', stakeholder: '', pain: '', workaround: '', need: '', statement: '' };
+      const brainstorm = result.insights.problemBrainstorm?.[i] || '';
+      const question = result.insights.questions?.[i] || '';
+
+      return [
+        `"${row.barrier.replace(/"/g, '""')}"`,
+        `"${row.stakeholder.replace(/"/g, '""')}"`,
+        `"${row.pain.replace(/"/g, '""')}"`,
+        `"${row.workaround.replace(/"/g, '""')}"`,
+        `"${row.need.replace(/"/g, '""')}"`,
+        `"${row.statement.replace(/"/g, '""')}"`,
+        `"${brainstorm.replace(/"/g, '""')}"`,
+        `"${question.replace(/"/g, '""')}"`
+      ];
+    });
+
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    // Ensure UTF-8 with BOM for Excel compatibility
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `orchestrator-analysis-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const fileName = e.target.files[0].name;
-      setInput(prev => `[Observation Video: ${fileName}]\n\nUser Profile: \nBehavior Observed: \n${prev}`);
+      const file = e.target.files[0];
+      setSelectedVideoFile(file);
+      setVideoPreviewUrl(URL.createObjectURL(file));
+      // Clear previous results/inputs if any
+      setResult(null);
+      setInput('');
+      setError('');
     }
   };
 
+
   return (
     <div className="bg-slate-50 min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Researcher Dashboard</h1>
-            <p className="text-slate-500">Clinical Observation Analysis & Need Finding Hub</p>
-          </div>
-          <div className="flex gap-3">
-            <button className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              Export Clinical Data
-            </button>
-            <button className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700">
-              Collaborate
-            </button>
-          </div>
+      <div className="max-w-[1600px] mx-auto px-6 py-8">
+        <header className="mb-12 text-center">
+          <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase mb-2">ORCHESTRATOR</h1>
+          <div className="h-1 w-24 bg-blue-600 mx-auto rounded-full" />
+          <p className="text-slate-500 mt-4 font-medium uppercase tracking-widest text-xs">Clinical Observation & Need Synthesis Framework</p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4 space-y-6">
+        <div className="grid grid-cols-12 gap-8">
+          {/* Left Input Section */}
+          <div className="col-span-12 lg:col-span-3 space-y-6">
             <div className="bg-white p-6 rounded-[2rem] border border-slate-200 premium-shadow">
               <div className="flex items-center justify-between mb-6">
-                 <div className="flex items-center gap-2 text-blue-600">
-                    <ICONS.Video className="w-5 h-5" />
-                    <span className="text-sm font-bold uppercase tracking-wider">New Video Case</span>
-                 </div>
-                 <label className="cursor-pointer text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors">
-                    Upload MP4/MOV
-                    <input type="file" className="hidden" accept="video/*" onChange={handleFileUpload} />
-                 </label>
+                <div className="flex items-center gap-2 text-blue-600">
+                  <ICONS.Video className="w-5 h-5" />
+                  <span className="text-sm font-bold uppercase tracking-wider">Analysis Hub</span>
+                </div>
+                <label className="cursor-pointer text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors">
+                  Add Video
+                  <input type="file" className="hidden" accept="video/*" onChange={handleFileUpload} />
+                </label>
               </div>
-              
+
+              {videoPreviewUrl && (
+                <div className="mb-4 bg-slate-900 rounded-2xl overflow-hidden aspect-video relative">
+                  <video src={videoPreviewUrl} className="w-full h-full object-cover" controls />
+                  <button
+                    onClick={() => { setSelectedVideoFile(null); setVideoPreviewUrl(null); }}
+                    className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
               <div className="mb-4">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Researcher Notes & Disability Context</label>
                 <textarea
-                  className="w-full h-48 p-4 bg-slate-50 border border-slate-100 rounded-2xl resize-none focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all"
-                  placeholder="Describe the person's functional limitations (e.g. limited dexterity, paraplegia) and the specific activities being observed..."
+                  className="w-full h-40 p-4 bg-slate-50 border border-slate-100 rounded-2xl resize-none focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all"
+                  placeholder="Paste observation notes here..."
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                 />
               </div>
 
-              <button
-                onClick={handleAnalyze}
-                disabled={isLoading || !input}
-                className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>Extract Assistive Needs <ICONS.Zap className="w-4 h-4" /></>
-                )}
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleAnalyze}
+                  disabled={isLoading || !input}
+                  className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>Synthesize Text <ICONS.Zap className="w-4 h-4" /></>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleAnalyzeVideo}
+                  disabled={isVideoAnalyzing || !selectedVideoFile}
+                  className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isVideoAnalyzing ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>Analyze Video <ICONS.Zap className="w-4 h-4" /></>
+                  )}
+                </button>
+              </div>
+
               {error && <p className="mt-4 text-xs text-red-500 font-medium">{error}</p>}
             </div>
 
             {result && (
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-200 premium-shadow animate-fade-in">
-                <h3 className="text-lg font-bold mb-4">Observation Synthesis</h3>
-                <div className="space-y-4">
-                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Clinical Context</h4>
-                      <p className="text-sm text-slate-600 leading-relaxed">{result.insights.context}</p>
-                   </div>
-                   <button 
-                    onClick={handleVision}
-                    disabled={isVideoLoading}
-                    className="w-full py-3 bg-blue-50 text-blue-700 rounded-xl text-sm font-bold hover:bg-blue-100 flex items-center justify-center gap-2"
-                   >
-                    {isVideoLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-                        <span>{videoLoadingMessage}</span>
-                      </div>
-                    ) : (
-                      <><ICONS.Video className="w-4 h-4" /> Visualize Intervention</>
-                    )}
-                   </button>
+              <>
+                <div className="bg-slate-900 p-6 rounded-[2rem] text-white animate-fade-in">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Research Questions?</h3>
+                  <ul className="space-y-4">
+                    {result.insights.questions.map((q, i) => (
+                      <li key={i} className="text-sm text-slate-300 flex gap-3 leading-relaxed">
+                        <span className="text-blue-400 font-bold">?</span> {q}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
+              </>
             )}
           </div>
 
-          <div className="lg:col-span-8">
+          {/* Right Results Section */}
+          <div className="col-span-12 lg:col-span-9 space-y-6">
             {!result && !isLoading && (
               <div className="h-[600px] flex flex-col items-center justify-center bg-white border-2 border-dashed border-slate-200 rounded-[2.5rem] text-center p-12">
                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                  <ICONS.Table className="w-10 h-10 text-slate-300" />
+                  <ICONS.Table className="w-10 h-10 text-slate-200" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-400 mb-2">Awaiting Clinical Data</h3>
-                <p className="text-slate-400 max-w-sm">Upload an observation video or paste notes on the left to generate the Assistive Tech Evaluation Table.</p>
+                <h3 className="text-xl font-bold text-slate-400 mb-2">Framework Ready</h3>
+                <p className="text-slate-400 max-w-sm">Capture observations to generate the Orchestrator Evaluation Table.</p>
               </div>
             )}
 
@@ -221,68 +275,81 @@ const Demo = () => {
                   <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
                       <ICONS.Table className="w-5 h-5 text-blue-600" />
-                      Assistive Need Evaluation Table
+                      Observation Evaluation Table
                     </h3>
-                    <div className="text-[10px] font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-200">
-                      BIO-DESIGN FRAMEWORK
-                    </div>
+                    <button
+                      onClick={handleExportCSV}
+                      className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
+                    >
+                      <ICONS.Download className="w-4 h-4" />
+                      Export CSV
+                    </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-slate-50/50 text-[10px] uppercase tracking-widest text-slate-400 font-bold border-b border-slate-100">
-                        <tr>
-                          <th className="p-4 text-left">Functional Need</th>
-                          <th className="p-4 text-left">Barrier Type</th>
-                          <th className="p-4 text-left">Need Score</th>
-                          <th className="p-4 text-left">Device Market</th>
-                          <th className="p-4 text-left">Clinical Risk</th>
-                          <th className="p-4 text-left">R&D Feasibility</th>
-                          <th className="p-4 text-left">Timeline</th>
+                      <thead>
+                        <tr className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400 font-bold border-b border-slate-100">
+                          <th colSpan={4} className="p-4 border-r border-slate-100 text-center bg-slate-100/30">Observation Details</th>
+                          <th className="p-4 text-left border-r border-slate-100">Needs</th>
+                          <th className="p-4 text-left border-r border-slate-100">Statement</th>
+                          <th className="p-4 text-left">Ideation</th>
+                        </tr>
+                        <tr className="bg-white text-[9px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-100">
+                          <th className="p-3 text-left border-r border-slate-50 w-48">Barrier</th>
+                          <th className="p-3 text-left border-r border-slate-50 w-32">Stakeholder</th>
+                          <th className="p-3 text-left border-r border-slate-50 w-48">Pain</th>
+                          <th className="p-3 text-left border-r border-slate-100 w-48">Workaround</th>
+                          <th className="p-3 text-left border-r border-slate-50 w-48">Core Need</th>
+                          <th className="p-3 text-left border-r border-slate-50 w-64">Need Statement</th>
+                          <th className="p-3 text-left w-64">Problem Brainstorm</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {result.tableData.map((row, i) => (
-                          <TableRow key={i} data={row} />
+                        {Array.from({
+                          length: Math.max(result.tableData.length, result.insights.problemBrainstorm?.length || 0)
+                        }).map((_, i) => (
+                          <TableRow
+                            key={i}
+                            data={result.tableData[i] || { barrier: '', stakeholder: '', pain: '', workaround: '', need: '', statement: '' }}
+                            brainstorm={result.insights.problemBrainstorm?.[i]}
+                          />
                         ))}
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="bg-white p-6 rounded-[2rem] border border-slate-200 premium-shadow">
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Key Pain Points</h4>
-                      <ul className="space-y-3">
-                         {result.insights.keyInsights.map((ki, i) => (
-                           <li key={i} className="flex gap-3 text-sm text-slate-600">
-                              <span className="text-blue-500 font-bold">•</span> {ki}
-                           </li>
-                         ))}
-                      </ul>
-                   </div>
-                   <div className="bg-white p-6 rounded-[2rem] border border-slate-200 premium-shadow">
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Intervention Strategy</h4>
-                      <ul className="space-y-3">
-                         {result.insights.recommendations.map((rec, i) => (
-                           <li key={i} className="flex gap-3 text-sm text-slate-600">
-                              <span className="text-green-500 font-bold">✓</span> {rec}
-                           </li>
-                         ))}
-                      </ul>
-                   </div>
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex-1 bg-white p-6 rounded-[2rem] border border-slate-200 premium-shadow">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Observation Context</h4>
+                    <p className="text-sm text-slate-600 leading-relaxed">{result.insights.context}</p>
+                  </div>
+                  <div className="w-full md:w-80">
+                    <button
+                      onClick={handleVision}
+                      disabled={isVideoLoading}
+                      className="w-full h-full min-h-[100px] bg-blue-600 text-white rounded-[2rem] text-sm font-bold hover:bg-blue-700 flex flex-col items-center justify-center gap-2 shadow-xl transition-all hover:scale-[1.02]"
+                    >
+                      {isVideoLoading ? (
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span className="text-[10px] text-white/70 uppercase tracking-widest">{videoLoadingMessage}</span>
+                        </div>
+                      ) : (
+                        <><ICONS.Video className="w-6 h-6" /> <span>Visualize<br />Solution</span></>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {videoUrl && (
-                  <div className="bg-slate-900 rounded-[2.5rem] p-2 premium-shadow">
-                    <div className="p-4 text-center">
-                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Intervention Visualization</h4>
-                    </div>
-                    <video 
-                      src={videoUrl} 
-                      className="w-full rounded-[2.2rem] aspect-video object-cover" 
-                      controls 
-                      autoPlay 
-                      loop 
+                  <div className="bg-slate-900 rounded-[2.5rem] p-2 premium-shadow overflow-hidden">
+                    <video
+                      src={videoUrl}
+                      className="w-full rounded-[2.2rem] aspect-video object-cover"
+                      controls
+                      autoPlay
+                      loop
                     />
                   </div>
                 )}
@@ -291,7 +358,7 @@ const Demo = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

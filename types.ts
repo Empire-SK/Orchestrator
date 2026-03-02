@@ -1,22 +1,19 @@
 
 export interface NeedStatement {
+  barrier: string;
+  stakeholder: string;
+  pain: string;
+  workaround: string;
+  need: string;
   statement: string;
-  category: string;
-  impactScore: number;
-  marketPotential: string;
-  riskLevel: 'Low' | 'Medium' | 'High';
-  feasibility: number;
-  innovationScore: number;
-  unfairAdvantage: string;
-  timeToExecution: string;
 }
 
 export interface AIResponse {
   insights: {
-    observation: string;
+    problemBrainstorm: string[];
+    questions: string[];
     context: string;
-    keyInsights: string[];
-    recommendations: string[];
+    observationSummary: string;
   };
   tableData: NeedStatement[];
 }
