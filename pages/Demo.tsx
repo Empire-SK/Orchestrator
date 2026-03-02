@@ -89,7 +89,7 @@ const Demo = () => {
     setError('');
     try {
       const { generateVisionVideo } = await import('../services/geminiService');
-      const url = await generateVisionVideo(`Assistive device concept based on: ${result?.insights.observationSummary || input}`);
+      const url = await generateVisionVideo(`Assistive device concept based on: ${result?.insights?.observationSummary || input}`);
       setVideoUrl(url);
     } catch (err: any) {
       setError(err.message || 'Visualization generation failed.');
@@ -113,15 +113,15 @@ const Demo = () => {
     ];
 
     const maxRows = Math.max(
-      result.tableData.length,
-      result.insights.problemBrainstorm?.length || 0,
-      result.insights.questions?.length || 0
+      result.tableData?.length || 0,
+      result.insights?.problemBrainstorm?.length || 0,
+      result.insights?.questions?.length || 0
     );
 
     const rows = Array.from({ length: maxRows }).map((_, i) => {
-      const row = result.tableData[i] || { barrier: '', stakeholder: '', pain: '', workaround: '', need: '', statement: '' };
-      const brainstorm = result.insights.problemBrainstorm?.[i] || '';
-      const question = result.insights.questions?.[i] || '';
+      const row = result.tableData?.[i] || { barrier: '', stakeholder: '', pain: '', workaround: '', need: '', statement: '' };
+      const brainstorm = result.insights?.problemBrainstorm?.[i] || '';
+      const question = result.insights?.questions?.[i] || '';
 
       return [
         `"${row.barrier.replace(/"/g, '""')}"`,
@@ -234,19 +234,17 @@ const Demo = () => {
               {error && <p className="mt-4 text-xs text-red-500 font-medium">{error}</p>}
             </div>
 
-            {result && (
-              <>
-                <div className="bg-slate-900 p-6 rounded-[2rem] text-white animate-fade-in">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Research Questions?</h3>
-                  <ul className="space-y-4">
-                    {result.insights.questions.map((q, i) => (
-                      <li key={i} className="text-sm text-slate-300 flex gap-3 leading-relaxed">
-                        <span className="text-blue-400 font-bold">?</span> {q}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </>
+            {result && result.insights?.questions && result.insights.questions.length > 0 && (
+              <div className="bg-slate-900 p-6 rounded-[2rem] text-white animate-fade-in">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Research Questions?</h3>
+                <ul className="space-y-4">
+                  {result.insights.questions.map((q, i) => (
+                    <li key={i} className="text-sm text-slate-300 flex gap-3 leading-relaxed">
+                      <span className="text-blue-400 font-bold">?</span> {q}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
 
@@ -306,12 +304,12 @@ const Demo = () => {
                       </thead>
                       <tbody>
                         {Array.from({
-                          length: Math.max(result.tableData.length, result.insights.problemBrainstorm?.length || 0)
+                          length: Math.max(result.tableData?.length || 0, result.insights?.problemBrainstorm?.length || 0)
                         }).map((_, i) => (
                           <TableRow
                             key={i}
-                            data={result.tableData[i] || { barrier: '', stakeholder: '', pain: '', workaround: '', need: '', statement: '' }}
-                            brainstorm={result.insights.problemBrainstorm?.[i]}
+                            data={result.tableData?.[i] || { barrier: '', stakeholder: '', pain: '', workaround: '', need: '', statement: '' }}
+                            brainstorm={result.insights?.problemBrainstorm?.[i]}
                           />
                         ))}
                       </tbody>
@@ -322,7 +320,7 @@ const Demo = () => {
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-1 bg-white p-6 rounded-[2rem] border border-slate-200 premium-shadow">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Observation Context</h4>
-                    <p className="text-sm text-slate-600 leading-relaxed">{result.insights.context}</p>
+                    <p className="text-sm text-slate-600 leading-relaxed">{result.insights?.context}</p>
                   </div>
                   <div className="w-full md:w-80">
                     <button
