@@ -207,26 +207,14 @@ const Demo = () => {
 
               <div className="flex flex-col gap-3">
                 <button
-                  onClick={handleAnalyze}
-                  disabled={isLoading || !input}
-                  className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50"
+                  onClick={selectedVideoFile ? handleAnalyzeVideo : handleAnalyze}
+                  disabled={(isLoading || isVideoAnalyzing) || (!input && !selectedVideoFile)}
+                  className={`w-full py-4 text-white rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-colors ${selectedVideoFile ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-900 hover:bg-slate-800'}`}
                 >
-                  {isLoading ? (
+                  {isLoading || isVideoAnalyzing ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <>Synthesize Text <ICONS.Zap className="w-4 h-4" /></>
-                  )}
-                </button>
-
-                <button
-                  onClick={handleAnalyzeVideo}
-                  disabled={isVideoAnalyzing || !selectedVideoFile}
-                  className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isVideoAnalyzing ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>Analyze Video <ICONS.Zap className="w-4 h-4" /></>
+                    <>{selectedVideoFile ? 'Analyze Video + Notes' : 'Synthesize Text'} <ICONS.Zap className="w-4 h-4" /></>
                   )}
                 </button>
               </div>
