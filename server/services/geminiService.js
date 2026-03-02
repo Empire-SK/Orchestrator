@@ -154,7 +154,25 @@ export const analyzeVideo = async (filePath, mimeType, textPrompt) => {
       - Problem Brainstorm: A list of related problems identified.
       - Questions: Critical questions for further research.
       
-      Respond ONLY in valid JSON matching the same schema as used for text.`;
+      Respond ONLY in valid JSON matching this schema:
+      {
+        "insights": {
+          "observationSummary": "string",
+          "context": "string",
+          "problemBrainstorm": ["string"],
+          "questions": ["string"]
+        },
+        "tableData": [
+          {
+            "barrier": "string",
+            "stakeholder": "string",
+            "pain": "string",
+            "workaround": "string",
+            "need": "string",
+            "statement": "string"
+          }
+        ]
+      }`;
 
         const result = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -172,7 +190,12 @@ export const analyzeVideo = async (filePath, mimeType, textPrompt) => {
             }
         });
 
+        console.log("[GeminiService] Raw AI Result:", JSON.stringify(result));
+
         let text = result.text || '';
+        if (!text) {
+            console.error("[GeminiService] WARNING: AI returned empty text!");
+        }
         text = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
         return JSON.parse(text || '{"insights":{},"tableData":[]}');
     };
