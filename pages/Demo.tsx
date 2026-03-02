@@ -73,8 +73,8 @@ const Demo = () => {
       const { analyzeVideoFile } = await import('../services/geminiService');
       const data = await analyzeVideoFile(selectedVideoFile, input);
       setResult(data);
-      // Optional: clear standard text input since we analyzed video
-      setInput('');
+      // Optional: keep standard text input visible instead of clearing
+      // setInput('');
     } catch (err: any) {
       setError(err.message || 'Video Analysis failed. Please verify your API setup.');
     } finally {
