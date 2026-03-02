@@ -71,7 +71,7 @@ const Demo = () => {
     try {
       // Assuming new function `analyzeVideoFile` in geminiService
       const { analyzeVideoFile } = await import('../services/geminiService');
-      const data = await analyzeVideoFile(selectedVideoFile);
+      const data = await analyzeVideoFile(selectedVideoFile, input);
       setResult(data);
       // Optional: clear standard text input since we analyzed video
       setInput('');

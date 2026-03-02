@@ -53,7 +53,8 @@ app.post("/api/analyze-video", upload.single("video"), async (req, res) => {
     try {
         const filePath = req.file.path;
         const mimeType = req.file.mimetype;
-        const data = await analyzeVideo(filePath, mimeType);
+        const text = req.body.text;
+        const data = await analyzeVideo(filePath, mimeType, text);
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });

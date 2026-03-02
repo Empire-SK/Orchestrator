@@ -110,7 +110,7 @@ export const analyzeText = async (input) => {
     }
 };
 
-export const analyzeVideo = async (filePath, mimeType) => {
+export const analyzeVideo = async (filePath, mimeType, textPrompt) => {
     const execute = async (attempts = 0) => {
         const ai = getAI();
 
@@ -139,6 +139,7 @@ export const analyzeVideo = async (filePath, mimeType) => {
 
         // 3. Generate content from video
         const prompt = `Analyze this video for clinical observations and assistive technology needs.
+      ${textPrompt ? `\nAdditional observation notes from the user: "${textPrompt}"\n` : ''}
       Extract specific insights and build an evaluation table following the Orchestrator framework.
       
       Table columns needed:

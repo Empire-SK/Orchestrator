@@ -35,12 +35,15 @@ export const analyzeObservation = async (input: string): Promise<AIResponse> => 
 /**
  * Analyzes video files using the backend API.
  */
-export const analyzeVideoFile = async (file: File): Promise<AIResponse> => {
+export const analyzeVideoFile = async (file: File, text?: string): Promise<AIResponse> => {
   console.log(`[Service v6] Starting Video Analysis via Backend...`);
   
   try {
     const formData = new FormData();
     formData.append('video', file);
+    if (text) {
+      formData.append('text', text);
+    }
 
     const response = await fetch(`${getApiBaseUrl()}/api/analyze-video`, {
       method: 'POST',
