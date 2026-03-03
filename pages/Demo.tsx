@@ -25,6 +25,16 @@ const Demo = () => {
   const [videoUrl, setVideoUrl] = useState('');
   const [error, setError] = useState('');
 
+  const [analysisLoadingMessage, setAnalysisLoadingMessage] = useState('');
+
+  const analysisMessages = [
+    "Identifying key actions from observation...",
+    "Understanding clinical context...",
+    "Extracting physical and cognitive barriers...",
+    "Synthesizing assistive technology needs...",
+    "Formatting Orchestrator Evaluation Table..."
+  ];
+
   // New state for handling the actual video file to be analyzed
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -39,7 +49,7 @@ const Demo = () => {
 
   useEffect(() => {
     let interval: number;
-    if (isVideoLoading || isVideoAnalyzing) {
+    if (isVideoLoading) {
       let i = 0;
       setVideoLoadingMessage(loadingMessages[0]);
       interval = window.setInterval(() => {
@@ -48,7 +58,20 @@ const Demo = () => {
       }, 5000);
     }
     return () => window.clearInterval(interval);
-  }, [isVideoLoading, isVideoAnalyzing]);
+  }, [isVideoLoading]);
+
+  useEffect(() => {
+    let interval: number;
+    if (isLoading || isVideoAnalyzing) {
+      let i = 0;
+      setAnalysisLoadingMessage(analysisMessages[0]);
+      interval = window.setInterval(() => {
+        i = (i + 1) % analysisMessages.length;
+        setAnalysisLoadingMessage(analysisMessages[i]);
+      }, 4000);
+    }
+    return () => window.clearInterval(interval);
+  }, [isLoading, isVideoAnalyzing]);
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
@@ -238,7 +261,7 @@ const Demo = () => {
 
           {/* Right Results Section */}
           <div className="col-span-12 lg:col-span-9 space-y-6">
-            {!result && !isLoading && (
+            {!result && !isLoading && !isVideoAnalyzing && (
               <div className="h-[600px] flex flex-col items-center justify-center bg-white border-2 border-dashed border-slate-200 rounded-[2.5rem] text-center p-12">
                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                   <ICONS.Table className="w-10 h-10 text-slate-200" />
@@ -248,14 +271,19 @@ const Demo = () => {
               </div>
             )}
 
-            {isLoading && (
-              <div className="space-y-4">
-                <div className="h-12 bg-white rounded-xl animate-pulse border border-slate-100" />
-                <div className="h-96 bg-white rounded-[2rem] animate-pulse border border-slate-100" />
+            {(isLoading || isVideoAnalyzing) && (
+              <div className="h-[600px] flex flex-col items-center justify-center bg-white border-2 border-slate-100 rounded-[2.5rem] text-center p-12 premium-shadow">
+                <div className="w-20 h-20 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mb-8" />
+                <h3 className="text-2xl font-bold text-slate-800 mb-3 animate-pulse">
+                  {analysisLoadingMessage || "Initializing synthesis..."}
+                </h3>
+                <p className="text-slate-500 max-w-sm">
+                  The AI is actively processing the observation data. This may take a few moments depending on the video length.
+                </p>
               </div>
             )}
 
-            {result && !isLoading && (
+            {result && !isLoading && !isVideoAnalyzing && (
               <div className="space-y-6 animate-fade-in">
                 <div className="bg-white rounded-[2.5rem] border border-slate-200 premium-shadow overflow-hidden">
                   <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
