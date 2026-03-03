@@ -63,12 +63,3 @@ export const analyzeVideoFile = async (file: File, text?: string): Promise<AIRes
   }
 };
 
-export const generateVisionVideo = async (prompt: string): Promise<string> => {
-  console.log("[Service v6] Video Generation requested. Using dummy demo data.");
-  return new Promise((resolve) => {
-    setTimeout(() => {
-       // Return a dummy placeholder video
-       resolve("https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4");
-    }, 4000); // Simulate 4 seconds of "generation" time
-  });
-};

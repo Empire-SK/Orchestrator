@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { analyzeObservation, generateVisionVideo } from '../services/geminiService';
+import { analyzeObservation } from '../services/geminiService';
 import { AIResponse, NeedStatement } from '../types';
 import { ICONS } from '../constants';
 
@@ -20,9 +20,6 @@ const Demo = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<AIResponse | null>(null);
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [videoLoadingMessage, setVideoLoadingMessage] = useState('');
-  const [videoUrl, setVideoUrl] = useState('');
   const [error, setError] = useState('');
 
   const [analysisStepIndex, setAnalysisStepIndex] = useState(0);
@@ -48,18 +45,7 @@ const Demo = () => {
     "Generating high-fidelity visualization..."
   ];
 
-  useEffect(() => {
-    let interval: number;
-    if (isVideoLoading) {
-      let i = 0;
-      setVideoLoadingMessage(loadingMessages[0]);
-      interval = window.setInterval(() => {
-        i = (i + 1) % loadingMessages.length;
-        setVideoLoadingMessage(loadingMessages[i]);
-      }, 5000);
-    }
-    return () => window.clearInterval(interval);
-  }, [isVideoLoading]);
+
 
   useEffect(() => {
     let interval: number;
@@ -69,7 +55,7 @@ const Demo = () => {
       setAnalysisStepIndex(0);
 
       interval = window.setInterval(() => {
-        i = Math.min(i + 1, analysisMessages.length - 1);
+        i = (i + 1) % analysisMessages.length;
         setAnalysisStepIndex(i);
       }, 4000);
 
@@ -109,21 +95,7 @@ const Demo = () => {
     }
   };
 
-  const handleVision = async () => {
-    // Note: AI Studio key selection is removed as we moved keys to the backend.
-    // However, vision generation is currently disabled due to enterprise constraints.
-    setIsVideoLoading(true);
-    setError('');
-    try {
-      const { generateVisionVideo } = await import('../services/geminiService');
-      const url = await generateVisionVideo(`Assistive device concept based on: ${result?.insights?.observationSummary || input}`);
-      setVideoUrl(url);
-    } catch (err: any) {
-      setError(err.message || 'Visualization generation failed.');
-    } finally {
-      setIsVideoLoading(false);
-    }
-  };
+
 
   const handleExportCSV = () => {
     if (!result || !result.tableData) return;
@@ -380,41 +352,13 @@ const Demo = () => {
                     <h4 className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 sm:mb-4">Observation Context</h4>
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{result.insights?.context}</p>
                   </div>
-                  <div className="w-full md:w-80">
-                    <button
-                      onClick={handleVision}
-                      disabled={isVideoLoading}
-                      className="w-full h-full min-h-[80px] md:min-h-[100px] bg-blue-600 text-white rounded-[1.5rem] md:rounded-[2rem] text-xs sm:text-sm font-bold hover:bg-blue-700 flex flex-col items-center justify-center gap-2 shadow-xl transition-all hover:scale-[1.02]"
-                    >
-                      {isVideoLoading ? (
-                        <div className="flex flex-col items-center gap-3">
-                          <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          <span className="text-[10px] text-white/70 uppercase tracking-widest">{videoLoadingMessage}</span>
-                        </div>
-                      ) : (
-                        <><ICONS.Video className="w-6 h-6" /> <span>Visualize<br />Solution</span></>
-                      )}
-                    </button>
-                  </div>
                 </div>
-
-                {videoUrl && (
-                  <div className="bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] p-1 sm:p-2 premium-shadow overflow-hidden">
-                    <video
-                      src={videoUrl}
-                      className="w-full rounded-[1.2rem] sm:rounded-[2.2rem] aspect-video object-cover"
-                      controls
-                      autoPlay
-                      loop
-                    />
-                  </div>
-                )}
               </div>
             )}
           </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 
