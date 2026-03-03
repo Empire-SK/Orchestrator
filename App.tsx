@@ -10,33 +10,32 @@ const Navbar = () => {
   const isDemo = location.pathname === '/demo';
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass-morphism border-b border-slate-100 px-6 py-4">
-      <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <Link to="/" className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-          <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
-            <div className="w-3 h-3 bg-white rounded-full"></div>
+    <nav className="fixed top-0 left-0 right-0 z-50 glass-morphism border-b border-slate-100 px-4 sm:px-6 py-3 sm:py-4">
+      <div className="max-w-7xl mx-auto flex justify-between items-center gap-2">
+        <Link to="/" className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 flex-shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-slate-900 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-white rounded-full"></div>
           </div>
-          Orchestrator
+          <span className="truncate">Orchestrator</span>
         </Link>
-        
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+
+        {/* <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
           <Link to="/" className="hover:text-slate-900 transition-colors">Product</Link>
           <Link to="/" className="hover:text-slate-900 transition-colors">Features</Link>
           <Link to="/" className="hover:text-slate-900 transition-colors">Roadmap</Link>
-        </div>
+        </div> */}
 
-        <div className="flex items-center gap-4">
-          <Link 
-            to="/demo" 
-            className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
-              isDemo 
-              ? 'bg-slate-900 text-white shadow-lg' 
+        <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
+          <Link
+            to="/demo"
+            className={`whitespace-nowrap px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-[13px] sm:text-sm font-semibold transition-all ${isDemo
+              ? 'bg-slate-900 text-white shadow-lg'
               : 'bg-white text-slate-900 border border-slate-200 hover:border-slate-400'
-            }`}
+              }`}
           >
             {isDemo ? 'Live Demo' : 'View MVP Demo'}
           </Link>
-          <button className="hidden sm:block px-5 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700 transition-all shadow-md">
+          <button className="hidden sm:block whitespace-nowrap px-5 py-2.5 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700 transition-all shadow-md">
             Early Access
           </button>
         </div>
