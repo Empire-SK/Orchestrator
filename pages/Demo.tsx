@@ -26,6 +26,7 @@ const Demo = () => {
   const [error, setError] = useState('');
 
   const [analysisLoadingMessage, setAnalysisLoadingMessage] = useState('');
+  const [progress, setProgress] = useState(0);
 
   const analysisMessages = [
     "Identifying key actions from observation...",
@@ -62,15 +63,28 @@ const Demo = () => {
 
   useEffect(() => {
     let interval: number;
+    let progressInterval: number;
+
     if (isLoading || isVideoAnalyzing) {
       let i = 0;
+      setProgress(0);
       setAnalysisLoadingMessage(analysisMessages[0]);
+
       interval = window.setInterval(() => {
         i = (i + 1) % analysisMessages.length;
         setAnalysisLoadingMessage(analysisMessages[i]);
       }, 4000);
+
+      // Fake progress bar that fills to 95% 
+      progressInterval = window.setInterval(() => {
+        setProgress(prev => Math.min(prev + (95 - prev) * 0.05, 95));
+      }, 500);
+
     }
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearInterval(interval);
+      window.clearInterval(progressInterval);
+    };
   }, [isLoading, isVideoAnalyzing]);
 
   const handleAnalyze = async () => {
@@ -272,14 +286,46 @@ const Demo = () => {
             )}
 
             {(isLoading || isVideoAnalyzing) && (
-              <div className="h-[600px] flex flex-col items-center justify-center bg-white border-2 border-slate-100 rounded-[2.5rem] text-center p-12 premium-shadow">
-                <div className="w-20 h-20 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mb-8" />
-                <h3 className="text-2xl font-bold text-slate-800 mb-3 animate-pulse">
-                  {analysisLoadingMessage || "Initializing synthesis..."}
-                </h3>
-                <p className="text-slate-500 max-w-sm">
-                  The AI is actively processing the observation data. This may take a few moments depending on the video length.
-                </p>
+              <div className="h-[600px] flex flex-col items-center justify-center relative overflow-hidden bg-white border border-slate-100 rounded-[2.5rem] text-center p-12 premium-shadow">
+
+                {/* Decorative background blurs using standard utility classes */}
+                <div className="absolute -top-32 -right-32 w-96 h-96 bg-blue-400/10 rounded-full blur-[100px] pointer-events-none" />
+                <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col items-center w-full">
+                  {/* Premium layered spinner */}
+                  <div className="relative w-24 h-24 mb-10">
+                    <div className="absolute inset-0 border-[3px] border-slate-100 rounded-full" />
+                    <div className="absolute inset-0 border-[3px] border-blue-600 rounded-full border-t-transparent animate-spin" />
+                    <div className="absolute inset-3 border-[3px] border-indigo-400/50 rounded-full border-b-transparent animate-[spin_1.5s_linear_reverse_infinite]" />
+                    <div className="absolute inset-0 flex items-center justify-center relative">
+                      <ICONS.Zap className="w-8 h-8 text-blue-600 animate-pulse absolute drop-shadow-md" />
+                      <div className="absolute w-12 h-12 bg-blue-400/20 rounded-full animate-ping" />
+                    </div>
+                  </div>
+
+                  <div className="h-12 flex items-center justify-center overflow-hidden mb-4">
+                    <h3 key={analysisLoadingMessage} className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-600 tracking-tight animate-fade-in">
+                      {analysisLoadingMessage || "Initializing synthesis..."}
+                    </h3>
+                  </div>
+
+                  <p className="text-slate-500 font-medium max-w-sm text-sm leading-relaxed mb-12 animate-fade-in" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
+                    Gemini 2.5 Flash is actively processing the clinical data to generate a structured evaluation matrix.
+                  </p>
+
+                  {/* Progress Bar */}
+                  <div className="w-full max-w-xs h-1.5 bg-slate-100 rounded-full overflow-hidden mb-3">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.5)] transition-all duration-300 ease-out"
+                      style={{ width: `${Math.max(5, progress)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between w-full max-w-xs text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+                    <span>Synthesizing Model</span>
+                    <span className="text-blue-600">{Math.round(progress)}%</span>
+                  </div>
+                </div>
               </div>
             )}
 
