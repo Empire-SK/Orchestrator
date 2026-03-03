@@ -120,15 +120,15 @@ const Home = () => (
           Upload observation videos of persons with disabilities, add clinical notes, and let AI generate structured need-finding tables for assistive technology.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link to="/demo" className="w-full sm:w-auto px-10 py-5 bg-slate-900 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
+          <Link to="/demo" className="w-full sm:w-auto whitespace-nowrap px-8 py-4 sm:px-10 sm:py-5 bg-slate-900 text-white rounded-full font-bold text-base sm:text-lg hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
             Start Need Finding <ICONS.ArrowRight className="w-5 h-5" />
           </Link>
-          <button className="w-full sm:w-auto px-10 py-5 bg-white text-slate-900 border border-slate-200 rounded-full font-bold text-lg hover:bg-slate-50 transition-all">
+          <button className="w-full sm:w-auto whitespace-nowrap px-8 py-4 sm:px-10 sm:py-5 bg-white text-slate-900 border border-slate-200 rounded-full font-bold text-base sm:text-lg hover:bg-slate-50 transition-all">
             Researcher Login
           </button>
         </div>
       </div>
-      
+
       {/* Background Decor */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-none z-0 overflow-hidden">
         <div className="absolute top-1/4 -right-1/4 w-[500px] h-[500px] bg-blue-50 rounded-full blur-3xl opacity-50"></div>
@@ -147,10 +147,10 @@ const Home = () => (
         <h2 className="text-4xl font-bold mb-8">Empower Independent Living</h2>
         <p className="text-slate-400 mb-12 max-w-xl mx-auto">Join researchers and developers worldwide using Orchestrator to solve complex accessibility challenges.</p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link to="/demo" className="w-full sm:w-auto px-8 py-4 bg-white text-slate-900 rounded-full font-bold text-lg hover:shadow-xl transition-all">
+          <Link to="/demo" className="whitespace-nowrap px-8 py-3.5 sm:px-8 sm:py-4 bg-white text-slate-900 rounded-full font-bold text-base sm:text-lg hover:shadow-xl transition-all">
             Launch Researcher Dashboard
           </Link>
-          <button className="w-full sm:w-auto px-8 py-4 border border-slate-700 rounded-full font-bold text-lg hover:bg-slate-800 transition-all">
+          <button className="whitespace-nowrap px-8 py-3.5 sm:px-8 sm:py-4 border border-slate-700 rounded-full font-bold text-base sm:text-lg hover:bg-slate-800 transition-all">
             Request Demo
           </button>
         </div>
