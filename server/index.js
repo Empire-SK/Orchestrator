@@ -29,7 +29,13 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
+        // Strip emojis, #, and other special chars that break file stat on Windows
+        const ext = path.extname(file.originalname);
+        const safeName = path.basename(file.originalname, ext)
+            .replace(/[^\w\s-]/g, '')   // remove non-alphanumeric except space/dash/underscore
+            .replace(/\s+/g, '_')        // spaces → underscores
+            .substring(0, 60);           // cap length
+        cb(null, `${Date.now()}-${safeName}${ext}`);
     },
 });
 const upload = multer({ storage });

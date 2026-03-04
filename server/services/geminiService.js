@@ -195,13 +195,18 @@ export const analyzeVideo = async (filePath, mimeType, textPrompt) => {
     const execute = async (attempts = 0) => {
         const ai = getAI();
 
-        // 1. Upload file to Gemini Files API
-        console.log(`[GeminiService] 📤 Uploading video: ${filePath}`);
-        // The new SDK uses ai.files.upload method
+        // 1. Read file into a Buffer and wrap as a Blob (avoids Windows path stat issues)
+        console.log(`[GeminiService] 📤 Reading video file: ${filePath}`);
+        const fileBuffer = fs.readFileSync(filePath);
+        const fileBlob = new Blob([fileBuffer], { type: mimeType });
+
+        console.log(`[GeminiService] 📤 Uploading video blob to Gemini Files API...`);
         const uploadResult = await ai.files.upload({
-            file: filePath,
-            mimeType,
-            displayName: "Observation Video",
+            file: fileBlob,
+            config: {
+                mimeType,
+                displayName: "Observation Video",
+            },
         });
 
         // 2. Wait for file to become ACTIVE
@@ -218,42 +223,42 @@ export const analyzeVideo = async (filePath, mimeType, textPrompt) => {
 
         console.log(`[GeminiService] ✅ Video active: ${file.uri}`);
 
-        // 3. Generate content from video
-        const prompt = `Analyze this video for clinical observations and assistive technology needs.
-      ${textPrompt ? `\nAdditional observation notes from the user: "${textPrompt}"\n` : ''}
-      Extract specific insights and build an evaluation table following the Orchestrator framework.
-      
-      Table columns needed:
-      1. Barrier: The functional limitation or physical/social obstacle.
-      2. Stakeholder: Who is affected.
-      3. Pain: The specific emotional or physical frustration.
-      4. Workaround: Any current temporary solution used.
-      5. Need: The core functional requirement.
-      6. Statement: A concise "A person needs X in order to Y" statement.
-      
-      Also provide:
-      - Problem Brainstorm: A list of related problems identified.
-      - Questions: Critical questions for further research.
-      
-      Respond ONLY in valid JSON matching this schema:
-      {
-        "insights": {
-          "observationSummary": "string",
-          "context": "string",
-          "problemBrainstorm": ["string"],
-          "questions": ["string"]
-        },
-        "tableData": [
-          {
-            "barrier": "string",
-            "stakeholder": "string",
-            "pain": "string",
-            "workaround": "string",
-            "need": "string",
-            "statement": "string"
-          }
-        ]
-      }`;
+        // 3. Generate content from video with topic guard
+        const prompt = `You are a strict gatekeeper and expert Assistive Technology Researcher. Your ONLY job is to analyze clinical observations about people with disabilities or health conditions.
+
+Analyze this video.${textPrompt ? `\nAdditional notes from the user: "${textPrompt}"` : ''}
+
+STEP 1 — RELEVANCE CHECK (strict):
+Does this video show a person experiencing a disability, health condition, physical/cognitive/sensory impairment, or an assistive technology / accessibility need?
+
+Mark as OFF-TOPIC if:
+- The video contains no observable human disability or health need
+- It is software, animation, or unrelated content
+
+STEP 2 — RESPOND:
+If OFF-TOPIC, respond ONLY with:
+{ "offTopic": true, "message": "This tool only analyzes clinical observations about people with disabilities or accessibility needs." }
+
+If RELEVANT, extract insights and build the Orchestrator evaluation table. Respond ONLY with:
+{
+  "offTopic": false,
+  "insights": {
+    "observationSummary": "string",
+    "context": "string",
+    "problemBrainstorm": ["string"],
+    "questions": ["string"]
+  },
+  "tableData": [
+    {
+      "barrier": "string",
+      "stakeholder": "string",
+      "pain": "string",
+      "workaround": "string",
+      "need": "string",
+      "statement": "string"
+    }
+  ]
+}`;
 
         const result = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -278,7 +283,7 @@ export const analyzeVideo = async (filePath, mimeType, textPrompt) => {
             console.error("[GeminiService] WARNING: AI returned empty text!");
         }
         text = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        return JSON.parse(text || '{"insights":{},"tableData":[]}');
+        return JSON.parse(text || '{"offTopic":true,"message":"Unable to process the video."}');
     };
 
     try {
