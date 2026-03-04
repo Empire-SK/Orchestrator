@@ -63,3 +63,29 @@ export const analyzeVideoFile = async (file: File, text?: string): Promise<AIRes
   }
 };
 
+/**
+ * Refines the current analysis using a chat-style user input.
+ */
+export const refineObservation = async (previousData: AIResponse, input: string): Promise<AIResponse> => {
+  console.log(`[Service] Starting Refinement via Backend...`);
+  try {
+    const response = await fetch(`${getApiBaseUrl()}/api/refine`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ previousData, input }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Backend responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    console.error(`Error in refineObservation:`, error);
+    throw new Error(`Refinement failed: ${error.message}`);
+  }
+};

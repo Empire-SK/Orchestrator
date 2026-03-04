@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { analyzeObservation } from '../services/geminiService';
+import React, { useState, useEffect, useRef } from 'react';
+import { analyzeObservation, refineObservation } from '../services/geminiService';
 import { AIResponse, NeedStatement } from '../types';
 import { ICONS } from '../constants';
 
@@ -15,6 +15,11 @@ const TableRow: React.FC<{ data: NeedStatement, brainstorm?: string }> = ({ data
     <td className="p-4 text-[11px] text-slate-500">{brainstorm || '-'}</td>
   </tr>
 );
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 const Demo = () => {
   const [input, setInput] = useState('');
@@ -37,6 +42,15 @@ const Demo = () => {
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [isVideoAnalyzing, setIsVideoAnalyzing] = useState(false);
+
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Off-topic toast
+  const [offTopicToast, setOffTopicToast] = useState<string | null>(null);
 
   const loadingMessages = [
     "Analyzing clinical barriers...",
@@ -63,13 +77,31 @@ const Demo = () => {
     return () => window.clearInterval(interval);
   }, [isLoading, isVideoAnalyzing]);
 
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, isRefining]);
+
+  useEffect(() => {
+    if (offTopicToast) {
+      const t = window.setTimeout(() => setOffTopicToast(null), 4000);
+      return () => window.clearTimeout(t);
+    }
+  }, [offTopicToast]);
+
   const handleAnalyze = async () => {
     if (!input.trim()) return;
     setIsLoading(true);
     setError('');
+    setChatMessages([]);
     try {
       const data = await analyzeObservation(input);
-      setResult(data);
+      if (data.offTopic) {
+        setOffTopicToast(data.message || 'This tool only analyzes clinical observations about people with disabilities or accessibility needs.');
+      } else {
+        setResult(data);
+      }
     } catch (err: any) {
       setError(err.message || 'Analysis failed. Please verify your API setup.');
     } finally {
@@ -81,17 +113,59 @@ const Demo = () => {
     if (!selectedVideoFile) return;
     setIsVideoAnalyzing(true);
     setError('');
+    setChatMessages([]);
     try {
-      // Assuming new function `analyzeVideoFile` in geminiService
       const { analyzeVideoFile } = await import('../services/geminiService');
       const data = await analyzeVideoFile(selectedVideoFile, input);
-      setResult(data);
-      // Optional: keep standard text input visible instead of clearing
-      // setInput('');
+      if (data.offTopic) {
+        setOffTopicToast(data.message || 'This tool only analyzes clinical observations about people with disabilities or accessibility needs.');
+      } else {
+        setResult(data);
+      }
     } catch (err: any) {
       setError(err.message || 'Video Analysis failed. Please verify your API setup.');
     } finally {
       setIsVideoAnalyzing(false);
+    }
+  };
+
+  const handleSendChat = async () => {
+    if (!chatInput.trim() || !result || isRefining) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsRefining(true);
+
+    try {
+      const refined = await refineObservation(result, userMessage);
+
+      if (refined.offTopic) {
+        // Off-topic: show toast popup, remove last user message from chat, don't touch the table
+        setChatMessages(prev => prev.slice(0, -1));
+        setOffTopicToast(refined.message || "Your message is outside the scope of this clinical observation.");
+      } else {
+        // Relevant: update the table
+        setResult(refined);
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: "Table updated based on your input. The analysis has been refined with the new context."
+        }]);
+      }
+    } catch (err: any) {
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Refinement failed: ${err.message}`
+      }]);
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleChatKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendChat();
     }
   };
 
@@ -155,12 +229,29 @@ const Demo = () => {
       setResult(null);
       setInput('');
       setError('');
+      setChatMessages([]);
     }
   };
 
 
   return (
     <div className="bg-slate-50 min-h-screen">
+      {/* Off-topic toast */}
+      {offTopicToast && (
+        <div className="fixed top-5 right-5 z-50 flex items-start gap-3 bg-white border border-orange-200 shadow-xl rounded-2xl px-5 py-4 max-w-sm animate-fade-in">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+            <span className="text-orange-500 font-bold text-base">!</span>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-800 mb-0.5">Off-Topic Message</p>
+            <p className="text-xs text-slate-500 leading-relaxed">{offTopicToast}</p>
+          </div>
+          <button
+            onClick={() => setOffTopicToast(null)}
+            className="flex-shrink-0 text-slate-300 hover:text-slate-500 transition-colors text-lg leading-none mt-0.5"
+          >×</button>
+        </div>
+      )}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <header className="mb-8 md:mb-12 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase mb-2">ORCHESTRATOR</h1>
@@ -221,6 +312,7 @@ const Demo = () => {
               {error && <p className="mt-4 text-xs text-red-500 font-medium">{error}</p>}
             </div>
 
+            {/* Research Questions */}
             {result && result.insights?.questions && result.insights.questions.length > 0 && (
               <div className="bg-slate-900 p-6 rounded-[2rem] text-white animate-fade-in">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Research Questions?</h3>
@@ -231,6 +323,74 @@ const Demo = () => {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* Chat Refinement Panel */}
+            {result && (
+              <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden premium-shadow animate-fade-in flex flex-col">
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-600">Refine with Chat</span>
+                </div>
+
+                {/* Messages */}
+                <div className="flex flex-col gap-3 p-4 max-h-64 overflow-y-auto">
+                  {chatMessages.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-4 leading-relaxed">
+                      Ask a follow-up question or provide more context to update the table.
+                    </p>
+                  )}
+                  {chatMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${msg.role === 'user'
+                          ? 'bg-slate-900 text-white rounded-br-md'
+                          : 'bg-blue-50 text-blue-900 border border-blue-100 rounded-bl-md'
+                          }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+                  {isRefining && (
+                    <div className="flex justify-start">
+                      <div className="bg-blue-50 border border-blue-100 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
+                        <span className="text-xs text-blue-600 font-medium">Refining table…</span>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Input */}
+                <div className="px-4 pb-4 pt-2 border-t border-slate-100 bg-slate-50/40">
+                  <div className="flex gap-2 items-end">
+                    <textarea
+                      rows={2}
+                      className="flex-1 p-3 bg-white border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 outline-none text-xs transition-all placeholder:text-slate-400"
+                      placeholder="E.g. Add more on caregiver impact…"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={handleChatKeyDown}
+                      disabled={isRefining}
+                    />
+                    <button
+                      onClick={handleSendChat}
+                      disabled={isRefining || !chatInput.trim()}
+                      className="p-3 rounded-xl bg-slate-900 text-white hover:bg-blue-600 disabled:opacity-40 transition-colors flex-shrink-0"
+                      title="Send (Enter)"
+                    >
+                      <ICONS.Zap className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5 text-right">Press Enter to send · Shift+Enter for new line</p>
+                </div>
               </div>
             )}
           </div>
@@ -301,10 +461,18 @@ const Demo = () => {
               <div className="space-y-6 animate-fade-in">
                 <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 premium-shadow overflow-hidden">
                   <div className="p-4 sm:p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm sm:text-base">
-                      <ICONS.Table className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                      Observation Evaluation Table
-                    </h3>
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm sm:text-base">
+                        <ICONS.Table className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                        Observation Evaluation Table
+                      </h3>
+                      {isRefining && (
+                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-50 border border-blue-100 px-2 py-1 rounded-full">
+                          <div className="w-2 h-2 border border-blue-300 border-t-blue-500 rounded-full animate-spin" />
+                          Updating…
+                        </span>
+                      )}
+                    </div>
                     <button
                       onClick={handleExportCSV}
                       className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-white border border-slate-200 text-slate-700 text-[10px] sm:text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
@@ -313,7 +481,13 @@ const Demo = () => {
                       Export CSV
                     </button>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="relative overflow-x-auto">
+                    {isRefining && (
+                      <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3 rounded-b-[1.5rem] md:rounded-b-[2.5rem]">
+                        <div className="w-9 h-9 border-[3px] border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Updating table…</p>
+                      </div>
+                    )}
                     <table className="w-full min-w-[800px]">
                       <thead>
                         <tr className="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400 font-bold border-b border-slate-100">

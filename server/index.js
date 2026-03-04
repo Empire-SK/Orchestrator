@@ -3,7 +3,7 @@ import cors from "cors";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
-import { analyzeText, analyzeVideo } from "./services/geminiService.js";
+import { analyzeText, analyzeVideo, refineAnalysis } from "./services/geminiService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +41,18 @@ app.post("/api/analyze", async (req, res) => {
 
     try {
         const data = await analyzeText(input);
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post("/api/refine", async (req, res) => {
+    const { previousData, input } = req.body;
+    if (!input || !previousData) return res.status(400).json({ error: "Previous data and input are required" });
+
+    try {
+        const data = await refineAnalysis(previousData, input);
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });

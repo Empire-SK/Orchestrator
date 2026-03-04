@@ -9,6 +9,8 @@ export interface NeedStatement {
 }
 
 export interface AIResponse {
+  offTopic?: boolean;
+  message?: string;
   insights: {
     problemBrainstorm: string[];
     questions: string[];

@@ -54,41 +54,50 @@ const handleAIError = async (error, context, retryFn, attempts = 0) => {
 export const analyzeText = async (input) => {
     const execute = async (attempts = 0) => {
         const ai = getAI();
-        const prompt = `You are an expert Assistive Technology Researcher. 
-      Analyze the following observation: ${input}.
-      Extract specific insights and build an evaluation table following the Orchestrator framework.
-      
-      Table columns needed:
-      1. Barrier: The functional limitation or physical/social obstacle.
-      2. Stakeholder: Who is affected.
-      3. Pain: The specific emotional or physical frustration.
-      4. Workaround: Any current temporary solution used.
-      5. Need: The core functional requirement.
-      6. Statement: A concise "A person needs X in order to Y" statement.
-      
-      Also provide:
-      - Problem Brainstorm: A list of related problems identified.
-      - Questions: Critical questions for further research.
-      
-      Respond ONLY in valid JSON matching this schema:
-      {
-        "insights": {
-          "observationSummary": "string",
-          "context": "string",
-          "problemBrainstorm": ["string"],
-          "questions": ["string"]
-        },
-        "tableData": [
-          {
-            "barrier": "string",
-            "stakeholder": "string",
-            "pain": "string",
-            "workaround": "string",
-            "need": "string",
-            "statement": "string"
-          }
-        ]
-      }`;
+        const prompt = `You are a strict gatekeeper and expert Assistive Technology Researcher. Your ONLY job is to analyze clinical observations about people with disabilities or health conditions and generate an evaluation table.
+
+The user has submitted this observation:
+"${input}"
+
+STEP 1 — RELEVANCE CHECK (strict):
+Determine if this observation is DIRECTLY about a person experiencing a disability, health condition, physical/cognitive/sensory impairment, or an assistive technology / accessibility need.
+
+Mark as RELEVANT only if the observation describes:
+- A person with a physical, cognitive, sensory, or mental health condition
+- A real-world functional limitation or barrier faced by such a person
+- An accessibility challenge or assistive technology need
+- A caregiver or clinician observing such a person
+
+Mark as OFF-TOPIC if:
+- It is a request to write code, build software, or create any app or website
+- It describes a non-disability engineering or design problem
+- It is a general question, greeting, or unrelated topic
+- It contains no observable human subject with a disability or health need
+
+STEP 2 — RESPOND:
+If OFF-TOPIC, respond ONLY with:
+{ "offTopic": true, "message": "This tool only analyzes clinical observations about people with disabilities or accessibility needs. Please describe a real observation of a person experiencing a functional barrier." }
+
+If RELEVANT, extract specific insights and build an evaluation table following the Orchestrator framework. Respond ONLY with:
+{
+  "offTopic": false,
+  "insights": {
+    "observationSummary": "string",
+    "context": "string",
+    "problemBrainstorm": ["string"],
+    "questions": ["string"]
+  },
+  "tableData": [
+    {
+      "barrier": "string",
+      "stakeholder": "string",
+      "pain": "string",
+      "workaround": "string",
+      "need": "string",
+      "statement": "string"
+    }
+  ]
+}`;
 
         const result = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -100,13 +109,85 @@ export const analyzeText = async (input) => {
 
         let text = result.text || '';
         text = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        return JSON.parse(text || '{"insights":{},"tableData":[]}');
+        return JSON.parse(text || '{"offTopic":true,"message":"Unable to process the request."}');
     };
 
     try {
         return await execute();
     } catch (error) {
         return await handleAIError(error, "analyzeText", execute);
+    }
+};
+
+export const refineAnalysis = async (previousData, userInput) => {
+    const execute = async (attempts = 0) => {
+        const ai = getAI();
+        const prompt = `You are a strict gatekeeper and expert Assistive Technology Researcher. Your ONLY job is to refine a clinical observation evaluation table.
+
+The current evaluation table and insights are:
+${JSON.stringify(previousData)}
+
+The user sent this message:
+"${userInput}"
+
+Your task has TWO steps:
+
+STEP 1 — RELEVANCE CHECK (strict):
+Decide if the message is DIRECTLY about the clinical observation above. Only mark it as relevant if it is clearly about:
+- The specific patient, caregiver, or environment in this observation
+- Modifying, correcting, or expanding the table rows (barriers, stakeholders, pain, workaround, need, statement)
+- Adding context about assistive technology needs for this case
+- Asking follow-up questions about this specific observation
+
+Mark it as OFF-TOPIC if it is about ANY of the following (even partially):
+- Coding, software development, web/app creation (e.g. "create a todo app", "write code", "build a website")
+- General knowledge, science, history, math, entertainment
+- Other medical cases not present in the table
+- Greetings, jokes, or unrelated conversation
+- Anything that is not about refining THIS specific evaluation table
+
+STEP 2 — RESPOND:
+If OFF-TOPIC, respond ONLY with:
+{ "offTopic": true, "message": "Your message is outside the scope of this clinical observation. I can only help refine or expand the current evaluation table." }
+
+If RELEVANT, respond ONLY with:
+{
+  "offTopic": false,
+  "insights": {
+    "observationSummary": "string",
+    "context": "string",
+    "problemBrainstorm": ["string"],
+    "questions": ["string"]
+  },
+  "tableData": [
+    {
+      "barrier": "string",
+      "stakeholder": "string",
+      "pain": "string",
+      "workaround": "string",
+      "need": "string",
+      "statement": "string"
+    }
+  ]
+}`;
+
+        const result = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json"
+            }
+        });
+
+        let text = result.text || '';
+        text = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        return JSON.parse(text || '{"offTopic":true,"message":"Unable to process the request."}');
+    };
+
+    try {
+        return await execute();
+    } catch (error) {
+        return await handleAIError(error, "refineAnalysis", execute);
     }
 };
 
