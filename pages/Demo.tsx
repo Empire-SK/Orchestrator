@@ -83,12 +83,7 @@ const Demo = () => {
     }
   }, [chatMessages, isRefining]);
 
-  useEffect(() => {
-    if (offTopicToast) {
-      const t = window.setTimeout(() => setOffTopicToast(null), 4000);
-      return () => window.clearTimeout(t);
-    }
-  }, [offTopicToast]);
+  // Off-topic modal: no auto-dismiss — user must click to close
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
@@ -236,20 +231,52 @@ const Demo = () => {
 
   return (
     <div className="bg-slate-50 min-h-screen">
-      {/* Off-topic toast */}
+      {/* Off-topic modal overlay */}
       {offTopicToast && (
-        <div className="fixed top-5 right-5 z-50 flex items-start gap-3 bg-white border border-orange-200 shadow-xl rounded-2xl px-5 py-4 max-w-sm animate-fade-in">
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-            <span className="text-orange-500 font-bold text-base">!</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 flex flex-col items-center text-center animate-fade-in">
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-full bg-orange-50 border-2 border-orange-200 flex items-center justify-center mb-5">
+              <svg className="w-8 h-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2">
+              Off-Topic Input Detected
+            </h2>
+
+            {/* Subtitle */}
+            <p className="text-xs font-bold text-orange-500 uppercase tracking-widest mb-4">Disability Observation Tool Only</p>
+
+            {/* Message */}
+            <p className="text-sm text-slate-500 leading-relaxed mb-6">{offTopicToast}</p>
+
+            {/* Hint box */}
+            <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 mb-6 text-left">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">This tool accepts:</p>
+              <ul className="space-y-1.5">
+                {[
+                  'Observations of a person with a disability or health condition',
+                  'Functional barriers faced by a patient or caregiver',
+                  'Assistive technology or accessibility needs'
+                ].map((hint, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                    <span className="text-blue-500 font-bold mt-0.5">✓</span> {hint}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Dismiss button */}
+            <button
+              onClick={() => setOffTopicToast(null)}
+              className="w-full py-3.5 bg-slate-900 hover:bg-blue-600 text-white text-sm font-bold rounded-xl transition-colors"
+            >
+              Got it — I'll revise my input
+            </button>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-800 mb-0.5">Off-Topic Message</p>
-            <p className="text-xs text-slate-500 leading-relaxed">{offTopicToast}</p>
-          </div>
-          <button
-            onClick={() => setOffTopicToast(null)}
-            className="flex-shrink-0 text-slate-300 hover:text-slate-500 transition-colors text-lg leading-none mt-0.5"
-          >×</button>
         </div>
       )}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
